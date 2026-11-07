@@ -434,6 +434,9 @@ main{ padding-bottom:116px; }
       </button>
     </div>
 
+    <label class="field-label">মিশন শুরুর তারিখ</label>
+    <input id="settingsStartDate" type="date" class="input-field font-num mb-4">
+
     <label class="field-label">টার্গেট পরীক্ষার তারিখ</label>
     <input id="settingsTargetDate" type="date" class="input-field font-num mb-4">
 
@@ -491,7 +494,7 @@ const KEYS = { tasks:'tasks', appState:'app-state', settings:'settings', goals:'
 /* ============================
    1. State & defaults
    ============================ */
-const DEFAULT_SETTINGS = { targetDate:'2026-12-31', workMinutes:25, breakMinutes:5 };
+const DEFAULT_SETTINGS = { startDate:null, targetDate:'2026-12-31', workMinutes:25, breakMinutes:5 };
 const DEFAULT_APP_STATE = { lastResetDate:null, streak:0, lastCompletionDate:null, pomodoroDate:null, pomodoroSessionsToday:0 };
 const DEFAULT_TASKS = [
   { id:1, text:'সকালের ফোকাস আওয়ারে ৪ ঘণ্টা পড়া', done:false },
@@ -500,7 +503,6 @@ const DEFAULT_TASKS = [
   { id:4, text:'ডাইজেস্ট থেকে ২০টি এমসিকিউ প্র্যাকটিস', done:false },
   { id:5, text:'আগামীকালের পড়ার টার্গেট সেট করা', done:false }
 ];
-const MISSION_START = new Date('2026-07-01T00:00:00');
 
 let settings = { ...DEFAULT_SETTINGS };
 let appState = { ...DEFAULT_APP_STATE };
@@ -571,6 +573,7 @@ async function initApp(){
   try{ appState = aRaw ? { ...DEFAULT_APP_STATE, ...JSON.parse(aRaw) } : { ...DEFAULT_APP_STATE }; }catch(e){ appState = { ...DEFAULT_APP_STATE }; }
   try{ monthlyGoals = gRaw ? JSON.parse(gRaw) : []; }catch(e){ monthlyGoals = []; }
 
+  if (!settings.startDate) settings.startDate = isoDate(new Date());
   handleDailyRollover();
   await Promise.all([persistTasks(), persistSettings(), persistAppState()]);
 
@@ -651,8 +654,9 @@ function updateCountdown(){
   const daysLeft = Math.max(0, Math.ceil((target - now) / 86400000));
   document.getElementById('daysLeft').textContent = daysLeft;
 
-  const total = target - MISSION_START;
-  const elapsed = now - MISSION_START;
+  const missionStart = parseISO(settings.startDate || isoDate(now));
+  const total = target - missionStart;
+  const elapsed = now - missionStart;
   const pct = total > 0 ? clamp(elapsed / total, 0, 1) : 1;
   const ring = document.getElementById('ringProgress');
   ring.setAttribute('stroke-dasharray', RING_CIRC.toFixed(2));
@@ -1070,6 +1074,7 @@ document.getElementById('closeSettingsBtn').addEventListener('click', closeSetti
 settingsOverlay.addEventListener('click', (e) => { if (e.target === settingsOverlay) closeSettings(); });
 
 function populateSettingsForm(){
+  document.getElementById('settingsStartDate').value = settings.startDate || '';
   document.getElementById('settingsTargetDate').value = settings.targetDate;
   document.getElementById('settingsWorkMin').value = settings.workMinutes;
   document.getElementById('settingsBreakMin').value = settings.breakMinutes;
@@ -1078,6 +1083,8 @@ document.getElementById('saveSettingsBtn').addEventListener('click', async () =>
   const dateVal = document.getElementById('settingsTargetDate').value;
   const workVal = clamp(parseInt(document.getElementById('settingsWorkMin').value) || 25, 1, 120);
   const breakVal = clamp(parseInt(document.getElementById('settingsBreakMin').value) || 5, 1, 60);
+  const startVal = document.getElementById('settingsStartDate').value;
+  if (startVal) settings.startDate = startVal;
   if (dateVal) settings.targetDate = dateVal;
   settings.workMinutes = workVal;
   settings.breakMinutes = breakVal;
@@ -1098,6 +1105,7 @@ document.getElementById('resetAllBtn').addEventListener('click', async () => {
   tasks = [...DEFAULT_TASKS];
   settings = { ...DEFAULT_SETTINGS };
   appState = { ...DEFAULT_APP_STATE };
+  settings.startDate = isoDate(new Date());
   handleDailyRollover();
   await Promise.all([persistTasks(), persistSettings(), persistAppState()]);
   renderRoutine(); renderPlan(); renderTasks(); renderStats(); renderHeaderDate(); updateCountdown();
